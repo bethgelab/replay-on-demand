@@ -55,7 +55,10 @@ fi
 apptx() {
   local binds="--bind $ROD_ROOT:$ROD_ROOT"
   case "$REPO" in "$ROD_ROOT"/*) : ;; *) binds="$binds --bind $REPO:$REPO" ;; esac
-  [ -n "${ROD_NODE_SCRATCH:-}" ] && [ -d "$ROD_NODE_SCRATCH" ] && binds="$binds --bind $ROD_NODE_SCRATCH"
+  # Node-local scratch is bound through its top-level directory (e.g. /scratch_local): Apptainer
+  # cannot create a nested mount point like /scratch_local/<job> that is missing in the image.
+  [ -n "${ROD_NODE_SCRATCH:-}" ] && [ -d "$ROD_NODE_SCRATCH" ] && \
+    binds="$binds --bind /$(printf '%s' "${ROD_NODE_SCRATCH#/}" | cut -d/ -f1)"
   # Mount the overlay READ-ONLY by default: a :rw overlay takes an EXCLUSIVE lock, so
   # concurrent jobs collide with "overlay ... currently in use by another process". The
   # overlay supplies pip packages READ at runtime (nvidia-modelopt etc.); pairing :ro with
