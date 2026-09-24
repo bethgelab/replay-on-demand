@@ -1,0 +1,56 @@
+# Qwen3.5-35B-A3B (base), German adaptation — curriculum-from-4b
+#
+# Curriculum transfer: no selection; train Qwen3.5-35B-A3B on the exact sample stream that
+# RoD selected for Qwen3.5-4B on the same German corpus, step by step, at a constant
+# learning rate followed by a cosine decay. The 4B run is `rod` of qwen35-4b-german in
+# configs/experiments/README.md. ROD_BLOCKS_DIR must be the corpus that run trained on
+# (the traces refer to its blocks by content hash); the Qwen3.5 models share a tokenizer.
+#
+# Batch: 1024 blocks of 4096 tokens per step (no selection).
+# Schedule: 2862 steps, WSD over 2862 steps: 25 warmup, constant LR 0.00012,
+#   then cosine decay to 1.2e-05 over the last 612 steps.
+#
+# ROD_MODEL_DIR: the base model, Qwen3.5-35B-A3B (base).
+# ROD_TRACE_DIR_1: <log_dir> of the Qwen3.5-4B German RoD run (constant-LR part).
+# ROD_TRACE_DIR_2: <log_dir> of the same run (anneal part).
+# Paper runs used 4 node(s) x 8 GPUs.
+# Launch: sbatch slurm/40_train.sbatch configs/experiments/qwen35-35b-german/curriculum-from-4b.yaml
+
+sft:
+  max_num_steps: 2862
+  max_num_epochs: 10
+  val_batches: 200
+  val_global_batch_size: 256
+  val_micro_batch_size: 8
+rod:
+  enable_selection: false
+  log_selected_idx: false
+  ref_loss_cache_path: null
+  curriculum_trace_dirs:
+  - ${oc.env:ROD_TRACE_DIR_1}
+  - ${oc.env:ROD_TRACE_DIR_2}
+data_mixer:
+  adapt_domain: german
+  allow_missing_fraction: 0.0
+  replay_share: 1.0
+data:
+  shuffle: false
+policy:
+  train_global_batch_size: 1024
+  megatron_cfg:
+    expert_model_parallel_size: 8
+    optimizer:
+      lr: 0.00012
+      min_lr: 1.2e-05
+    scheduler:
+      lr_decay_style: WSD
+      lr_wsd_decay_style: cosine
+      lr_wsd_decay_iters: 612
+      lr_decay_iters: 2862
+      lr_warmup_iters: 25
+    pipeline_model_parallel_size: 1
+checkpointing:
+  save_period: 477
+  keep_top_k: 3
+cluster:
+  num_nodes: 4

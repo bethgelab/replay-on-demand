@@ -1,0 +1,148 @@
+# RoD — base defaults for continued pretraining with Replay on Demand.
+#
+# Base trainer is NeMo-RL SFT (`nemo_rl.algorithms.sft`), inheriting NeMo-RL's own SFT defaults
+# below. Paths are supplied via OmegaConf env interpolation (${oc.env:VAR,default}), exported by
+# slurm/lib/container_env.sh. Experiment YAMLs (configs/experiments/**) are merged on top and set
+# the run specifics: steps, batch / candidate-pool size, learning-rate schedule, parallelism.
+
+defaults: /opt/nemo-rl/examples/configs/sft.yaml   # NeMo-RL's SFT defaults (inside the nemo-rl:v0.6.0 image)
+
+sft:
+  max_num_steps: 5000
+  max_num_epochs: 50            # high so max_num_steps binds
+  val_period: 250
+  val_batches: 150
+  val_global_batch_size: 16
+  val_micro_batch_size: 1
+  val_at_start: true
+  val_at_end: true
+  seed: 42
+
+rod:
+  top_k: 32                                  # trained batch size k (candidate pool = policy.train_global_batch_size)
+  selection_strategy: top_k                  # top_k (RoD) | fixed_ratio | replay_only_rho | fixed_ratio_rho
+  enable_selection: true                     # false = plain continual pre-training on the full batch
+  rich_log_period: 50
+  log_selected_idx: true                     # selected-sample trace → <log_dir>/selected_samples.jsonl
+  log_selected_idx_period: 1
+  # ref_loss cache dir (written by run_precompute; joined by content_hash at train time)
+  ref_loss_cache_path: ${oc.env:ROD_CACHE,/tmp/rod/ref_loss_cache}
+
+data_mixer:
+  corpus_path: ${oc.env:ROD_BLOCKS_DIR,/tmp/rod/blocks}   # packed-blocks parquet dir
+  adapt_domain: legal
+  replay_share: 1.0
+  allow_missing_fraction: 0.03
+  max_val_samples_per_origin: 200            # validation blocks kept per origin (null = full holdout)
+  seed: 42
+
+checkpointing:
+  enabled: true
+  checkpoint_dir: /checkpoints/rod           # overridden at runtime to <log_dir>/checkpoints
+  save_optimizer: false
+  save_period: 5000
+  keep_top_k: 1
+  metric_name: null
+  higher_is_better: false
+  checkpoint_must_save_by: null
+
+policy:
+  model_name: ${oc.env:ROD_MODEL_DIR,/models/nemotron-nano-12b-v2-base}
+  tokenizer:
+    name: ${policy.model_name}
+    chat_template_kwargs: null
+  train_global_batch_size: 256               # the candidate POOL per step (m·k) when selection is on
+  train_micro_batch_size: 1
+  max_total_sequence_length: 4096            # MUST equal the ingestion --block-size
+  precision: bfloat16
+  offload_optimizer_for_logprob: false
+  logprob_batch_size: 8                      # microbatch for policy.get_logprobs (scoring pass + precompute;
+                                             # forward-only, so it can exceed train_micro_batch_size)
+  dtensor_cfg:
+    enabled: false
+  dynamic_batching:
+    enabled: false
+  sequence_packing:
+    enabled: false
+  make_sequence_length_divisible_by: ${policy.megatron_cfg.tensor_model_parallel_size}
+  max_grad_norm: 1.0
+  optimizer: null
+
+  megatron_cfg:
+    enabled: true
+    empty_unused_memory_level: 1
+    activation_checkpointing: true
+    # Model-parallel axes can be set via env (ROD_TP/PP/CP/EP/ETP/SP; default 1/false; oc.decode
+    # turns the env strings into ints/bools) or as literal values in an experiment YAML. Nemotron-H is hybrid Mamba: no tensor parallelism on
+    # the SSM blocks, so keep TP=1; pipeline parallelism is the usable model-parallel axis.
+    tensor_model_parallel_size: ${oc.decode:${oc.env:ROD_TP,1}}
+    pipeline_model_parallel_size: ${oc.decode:${oc.env:ROD_PP,1}}
+    context_parallel_size: ${oc.decode:${oc.env:ROD_CP,1}}
+    expert_model_parallel_size: ${oc.decode:${oc.env:ROD_EP,1}}
+    expert_tensor_parallel_size: ${oc.decode:${oc.env:ROD_ETP,1}}
+    sequence_parallel: ${oc.decode:${oc.env:ROD_SP,false}}
+    pipeline_dtype: ${policy.precision}
+    gradient_accumulation_fusion: false
+    # Nemotron-H MLP is relu2 → the fused bias+activation kernel (gelu/swiglu/quick_geglu only) MUST be off.
+    bias_activation_fusion: false
+    apply_rope_fusion: false
+    moe_router_load_balancing_type: none
+    mtp_num_layers: null
+    train_iters: ${sft.max_num_steps}
+    optimizer:
+      optimizer: adam
+      lr: 1.0e-5                             # experiment YAMLs set the actual LR / schedule
+      min_lr: 1.0e-5
+      weight_decay: 0.1
+      bf16: true
+      fp16: false
+      params_dtype: float32
+      adam_beta1: 0.9
+      adam_beta2: 0.95
+      adam_eps: 1e-8
+      use_distributed_optimizer: true
+      use_precision_aware_optimizer: true
+      clip_grad: ${policy.max_grad_norm}
+      optimizer_cpu_offload: false
+      optimizer_offload_fraction: 0.0
+    scheduler:
+      start_weight_decay: ${policy.megatron_cfg.optimizer.weight_decay}
+      end_weight_decay: ${policy.megatron_cfg.optimizer.weight_decay}
+      weight_decay_incr_style: constant
+      lr_decay_style: constant
+      lr_warmup_iters: 20
+      lr_warmup_init: 1.0e-8
+    distributed_data_parallel_config:
+      grad_reduce_in_fp32: false
+      overlap_grad_reduce: true
+      overlap_param_gather: true
+      data_parallel_sharding_strategy: optim_grads_params
+      use_custom_fsdp: false
+
+data:
+  max_input_seq_length: ${policy.max_total_sequence_length}
+  shuffle: true
+  num_workers: 1
+  dataset_name: ResponseDataset
+  train_data_path: ${oc.env:ROD_SCRATCH_DIR,/tmp/rod}/train.jsonl
+  val_data_path: ${oc.env:ROD_SCRATCH_DIR,/tmp/rod}/val.jsonl
+
+logger:
+  log_dir: ${oc.env:ROD_LOG_DIR,/tmp/rod_logs}
+  wandb_enabled: true
+  tensorboard_enabled: false
+  mlflow_enabled: false
+  swanlab_enabled: false
+  monitor_gpus: false
+  num_val_samples_to_print: 0
+  wandb:
+    project: ${oc.env:WANDB_PROJECT,rod}
+    name: ${oc.env:MY_JOB_NAME,rod-run}
+  tensorboard: {}
+  gpu_monitoring:
+    collection_interval: 10
+    flush_interval: 10
+
+cluster:
+  gpus_per_node: 8
+  num_nodes: 1

@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rod"
+version = "0.1.0"
+description = "Replay on Demand (RoD) — joint reducible-loss selection of adaptation and replay data for continued pretraining, on public NeMo-RL"
+requires-python = ">=3.10"
+license = {text = "Apache-2.0"}
+# Heavy deps (nemo_rl, megatron, torch, transformer-engine, mamba-ssm, ...) come from the
+# nvcr.io/nvidia/nemo-rl:v0.6.0 container, which also provides these light dependencies;
+# slurm/00_setup_container.sh adds the few packages the image lacks.
+dependencies = [
+    "pyarrow",
+    "wandb",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

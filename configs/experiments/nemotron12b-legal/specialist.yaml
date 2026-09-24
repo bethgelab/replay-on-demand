@@ -1,0 +1,47 @@
+# Nemotron-Nano-12B-v2 (base), legal adaptation — specialist
+#
+# No-replay CPT: continued pretraining on the legal corpus only (no replay, no selection).
+# Its final checkpoint is the no-replay baseline and the adaptation reference theta_ref^A
+# used by precompute.yaml (pass B).
+#
+# Batch: 1024 blocks of 4096 tokens per step (no selection).
+# Schedule: 2898 steps, WSD over 2898 steps: 25 warmup, constant LR 0.00012,
+#   then cosine decay to 1.2e-05 over the last 580 steps.
+#
+# ROD_MODEL_DIR: the base model, Nemotron-Nano-12B-v2 (base).
+# Paper runs used 4 node(s) x 8 GPUs.
+# Launch: sbatch slurm/40_train.sbatch configs/experiments/nemotron12b-legal/specialist.yaml
+
+sft:
+  max_num_epochs: 10
+  max_num_steps: 2898
+  val_batches: 200
+  val_global_batch_size: 256
+  val_micro_batch_size: 8
+rod:
+  enable_selection: false
+  log_selected_idx: false
+  ref_loss_cache_path: null
+data_mixer:
+  replay_share: 0.0
+  allow_missing_fraction: 0.0
+  adapt_domain: legal
+policy:
+  megatron_cfg:
+    activation_checkpointing: false
+    optimizer:
+      lr: 0.00012
+      min_lr: 1.2e-05
+    scheduler:
+      lr_decay_style: WSD
+      lr_wsd_decay_style: cosine
+      lr_wsd_decay_iters: 580
+      lr_decay_iters: 2898
+      lr_warmup_iters: 25
+  train_global_batch_size: 1024
+checkpointing:
+  keep_top_k: 2
+  save_optimizer: true
+  save_period: 1159
+cluster:
+  num_nodes: 4

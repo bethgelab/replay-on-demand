@@ -1,0 +1,31 @@
+# Nemotron-Nano-12B-v2 (base), legal adaptation — precompute
+#
+# Reference-loss precompute (forward-only). Run twice on the same blocks corpus, both writing
+# into the same cache ($ROD_CACHE):
+#   pass A: replay blocks scored by the pretrained model theta_0 ($ROD_MODEL_DIR), for rho_R
+#   pass B: legal blocks scored by the adaptation reference theta_ref^A ($ROD_SPECIALIST_DIR),
+#           for rho_A
+# slurm/30_precompute.sbatch runs both passes (pass B's domain is data_mixer.adapt_domain).
+#
+# ROD_MODEL_DIR: the base model, Nemotron-Nano-12B-v2 (base).
+# ROD_SPECIALIST_DIR: HF export (slurm/50_convert.sbatch) of the final checkpoint of specialist.yaml.
+# Paper runs used 4 node(s) x 8 GPUs.
+# Launch: sbatch slurm/30_precompute.sbatch configs/experiments/nemotron12b-legal/precompute.yaml
+
+sft:
+  val_micro_batch_size: 8
+  val_global_batch_size: 256
+  val_batches: 50
+  max_num_steps: 5000
+rod:
+  enable_selection: true
+data_mixer:
+  allow_missing_fraction: 1.0
+  adapt_domain: legal
+  replay_share: 1.0
+policy:
+  megatron_cfg:
+    activation_checkpointing: false
+  train_global_batch_size: 256
+cluster:
+  num_nodes: 4

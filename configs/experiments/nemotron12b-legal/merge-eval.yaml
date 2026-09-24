@@ -1,0 +1,47 @@
+# Nemotron-Nano-12B-v2 (base), legal adaptation — merge-eval
+#
+# Model-merging baseline: validation-only run (max_num_steps: 0) of the linear interpolation
+#   theta_merge = (1 - lambda) * theta_0 + lambda * theta_A,  lambda in {0.2, 0.4, 0.6, 0.8}
+# of the pretrained model and the no-replay model (specialist.yaml), built with
+# `python -m rod.utils.merge_models`.
+#
+# Batch: 1024 blocks of 4096 tokens per step (no selection).
+# Schedule: none (validation only).
+#
+# ROD_MODEL_DIR: the merged model for one lambda.
+# Paper runs used 1 node(s) x 8 GPUs.
+# Launch: sbatch slurm/40_train.sbatch configs/experiments/nemotron12b-legal/merge-eval.yaml
+
+sft:
+  max_num_epochs: 10
+  max_num_steps: 0
+  val_at_end: false
+  val_batches: 200
+  val_global_batch_size: 256
+  val_micro_batch_size: 8
+rod:
+  enable_selection: false
+  log_selected_idx: false
+  ref_loss_cache_path: null
+data_mixer:
+  replay_share: 0.0
+  allow_missing_fraction: 0.0
+  adapt_domain: legal
+policy:
+  megatron_cfg:
+    activation_checkpointing: false
+    optimizer:
+      lr: 0.00012
+      min_lr: 1.2e-05
+    scheduler:
+      lr_decay_style: WSD
+      lr_wsd_decay_style: cosine
+      lr_wsd_decay_iters: 580
+      lr_decay_iters: 2898
+      lr_warmup_iters: 25
+  train_global_batch_size: 1024
+checkpointing:
+  enabled: false
+  keep_top_k: 2
+  save_optimizer: true
+  save_period: 1159

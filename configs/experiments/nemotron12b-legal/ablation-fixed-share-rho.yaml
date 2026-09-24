@@ -1,0 +1,52 @@
+# Nemotron-Nano-12B-v2 (base), legal adaptation — ablation-fixed-share-rho
+#
+# Selection ablation: a fixed replay share of the k trained slots (7.2%, RoD's average
+# share at m = 4), with RHO ranking within each corpus (rod.selection_strategy:
+# fixed_ratio_rho). The other arms of the ablation set fixed_ratio (uniform sampling
+# within each corpus) or replay_only_rho (RHO within the replay corpus only); the
+# comparison is RoD at m = 4 (rod-m4 in configs/experiments/README.md). 3536 optimizer
+# steps (the paper run had 3538, rounded here to a multiple of m for the scheduler).
+#
+# Batch: candidate pool 4096 = m*k with m=4, trained batch k=1024 blocks of 4096 tokens.
+# Schedule: 3536 steps, WSD over 3536 steps: 100 warmup, constant LR 0.00012,
+#   then cosine decay to 1.2e-05 over the last 616 steps.
+#   (scheduler iters in this file are in pool-sized units, i.e. optimizer steps / m;
+#   see configs/experiments/README.md)
+#
+# ROD_MODEL_DIR: the base model, Nemotron-Nano-12B-v2 (base).
+# Paper runs used 2 node(s) x 8 GPUs.
+# Launch: sbatch slurm/40_train.sbatch configs/experiments/nemotron12b-legal/ablation-fixed-share-rho.yaml
+
+sft:
+  max_num_steps: 3536
+  val_period: 100
+  val_batches: 100
+  val_global_batch_size: 64
+  val_micro_batch_size: 8
+rod:
+  top_k: 1024
+  selection_strategy: fixed_ratio_rho
+  fixed_replay_ratio: 0.072
+  enable_selection: true
+data_mixer:
+  max_val_samples_per_origin: 500
+  adapt_domain: legal
+  replay_share: 1.0
+policy:
+  train_global_batch_size: 4096
+  megatron_cfg:
+    optimizer:
+      lr: 0.00012
+      min_lr: 1.2e-05
+    scheduler:
+      lr_decay_style: WSD
+      lr_wsd_decay_style: cosine
+      lr_wsd_decay_iters: 154
+      lr_decay_iters: 884
+      lr_warmup_iters: 25
+checkpointing:
+  save_period: 400
+  keep_top_k: 2
+  save_optimizer: true
+cluster:
+  num_nodes: 2
