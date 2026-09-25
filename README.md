@@ -100,7 +100,11 @@ In the paper, `k = 1024` sequences of 4096 tokens and `m = 2`, i.e. a pool of 20
 - The public NeMo-RL container `nvcr.io/nvidia/nemo-rl:v0.6.0` (all heavy dependencies:
   PyTorch, Megatron-LM/Bridge, Ray), run through Apptainer.
 - A SLURM cluster with GPU nodes. The scripts target one 8-GPU node with 80 GB GPUs, running
-  the 12B model with pipeline parallelism 2 (`ROD_PP=2`).
+  the 12B model with pipeline parallelism 2 (`ROD_PP=2`); the paper runs used nodes of 8 B200s.
+  On 80 GB GPUs, lower `policy.logprob_batch_size` (e.g. to 2) if precompute or the scoring pass
+  runs out of memory. With fewer GPUs, also offload the optimizer state
+  (`policy.megatron_cfg.optimizer.optimizer_cpu_offload=true`, `optimizer_offload_fraction=1.0`,
+  and ample host memory): the full pipeline ran this way on 4 H100s.
 - A Hugging Face token for the gated Nemotron datasets, and a Weights & Biases key (or
   `export WANDB_MODE=offline` to log locally only).
 
