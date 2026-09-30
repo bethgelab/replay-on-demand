@@ -1,7 +1,7 @@
 # Replay on Demand (RoD)
 
 Code for the paper *Replay on Demand: An Emergent Curriculum for Balancing Adaptation and
-Forgetting in Continued Pretraining* (under review).
+Forgetting in Continued Pretraining* (preprint).
 
 ## Overview
 
