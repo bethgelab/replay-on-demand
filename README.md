@@ -233,7 +233,7 @@ pytest
 @article{rod2026,
   title   = {Replay on Demand: An Emergent Curriculum for Balancing Adaptation and
              Forgetting in Continued Pretraining},
-  author  = {<AUTHORS>},
+  author  = {Lukas Thede, Shengzhuang Chen, Stefan Winzeck, Matthias Bethge, Zeynep Akata, Jonathan Richard Schwarz},
   journal = {arXiv preprint arXiv:XXXX.XXXXX},
   year    = {2026}
 }
