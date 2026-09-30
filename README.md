@@ -1,7 +1,9 @@
 # Replay on Demand (RoD)
 
-Code for the paper *Replay on Demand: An Emergent Curriculum for Balancing Adaptation and
-Forgetting in Continued Pretraining* (preprint).
+[![arXiv](https://img.shields.io/badge/arXiv-XXXX.XXXXX-b31b1b.svg)](https://arxiv.org/abs/XXXX.XXXXX)
+
+Code for the paper [*Replay on Demand: An Emergent Curriculum for Balancing Adaptation and
+Forgetting in Continued Pretraining*](https://arxiv.org/abs/XXXX.XXXXX) (preprint).
 
 ## Overview
 
@@ -223,6 +225,18 @@ They run on CPU and need only `torch`, `pyarrow` and `pytest`:
 
 ```bash
 pytest
+```
+
+## Citation
+
+```bibtex
+@article{rod2026,
+  title   = {Replay on Demand: An Emergent Curriculum for Balancing Adaptation and
+             Forgetting in Continued Pretraining},
+  author  = {<AUTHORS>},
+  journal = {arXiv preprint arXiv:XXXX.XXXXX},
+  year    = {2026}
+}
 ```
 
 ## License
