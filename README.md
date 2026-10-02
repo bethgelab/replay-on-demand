@@ -1,9 +1,9 @@
 # Replay on Demand (RoD)
 
-[![arXiv](https://img.shields.io/badge/arXiv-XXXX.XXXXX-b31b1b.svg)](https://arxiv.org/abs/XXXX.XXXXX)
+[![arXiv](https://img.shields.io/badge/arXiv-2609.40089-b31b1b.svg)](https://arxiv.org/abs/2609.40089)
 
 Code for the paper [*Replay on Demand: An Emergent Curriculum for Balancing Adaptation and
-Forgetting in Continued Pretraining*](https://arxiv.org/abs/XXXX.XXXXX) (preprint).
+Forgetting in Continued Pretraining*](https://arxiv.org/abs/2609.40089) (preprint).
 
 ## Overview
 
